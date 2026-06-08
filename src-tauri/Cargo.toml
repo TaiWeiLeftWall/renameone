@@ -1,0 +1,27 @@
+[package]
+name = "app"
+version = "0.1.0"
+description = "图片归档工具 - 自动按日期和地点重命名文件夹"
+authors = ["you"]
+license = ""
+repository = ""
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6.2" }
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+walkdir = "2"
+log = "0.4"
+tauri = "2.11.2"
+tauri-plugin-log = "2"
+tauri-plugin-dialog = "2"
+kamadak-exif = "0.6.1"
