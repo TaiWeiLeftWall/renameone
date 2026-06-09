@@ -1,6 +1,7 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import './App.css';
 
 // ---- Types matching Rust backend ----
@@ -79,6 +80,33 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [feedback, setFeedback] = useState<Feedback>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  const processFolder = useCallback(async (selected: string) => {
+    if (!selected) return;
+    setFeedback(null);
+    setFolderPath(selected);
+    setLocation('');
+    setTitle('');
+    setInferResult(null);
+    setLoading(true);
+    try {
+      const scanResult: ImageEntry[] = await invoke('scan_folder', { folderPath: selected });
+      if (scanResult.length === 0) {
+        setFeedback({ type: 'error', message: '所选文件夹中没有找到图片文件' });
+        _setEntries([]);
+        setLoading(false);
+        return;
+      }
+      _setEntries(scanResult);
+      const inference: InferResult = await invoke('infer_date', { folderPath: selected, entries: scanResult });
+      setInferResult(inference);
+    } catch (err) {
+      setFeedback({ type: 'error', message: '扫描失败: ' + err });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const handleSelectFolder = useCallback(async () => {
     try {
@@ -147,6 +175,31 @@ function App() {
     return `${inferResult.date}_${loc}_${t}`;
   }, [inferResult, location, title]);
 
+  
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+    const setup = async () => {
+      try {
+        const win = getCurrentWindow();
+        unlisten = await win.onDragDropEvent((event: { payload: { type: string; paths?: string[] } }) => {
+          if (event.payload.type === 'over') {
+            setIsDragOver(true);
+          } else if (event.payload.type === 'leave') {
+            setIsDragOver(false);
+          } else if (event.payload.type === 'drop') {
+            setIsDragOver(false);
+            const paths = event.payload.paths;
+            if (paths && paths.length > 0) {
+              processFolder(paths[0]);
+            }
+          }
+        });
+      } catch (e) {}
+    };
+    setup();
+    return () => { if (unlisten) unlisten(); };
+  }, [processFolder]);
+
   const canRename = inferResult?.date && location.trim() && title.trim() && !renaming;
 
   return (
@@ -164,11 +217,20 @@ function App() {
             {loading ? <Spinner /> : <FolderIcon />}
             {loading ? '扫描中...' : '选择文件夹'}
           </button>
+          <p className="drag-hint">或拖拽文件夹到此处</p>
           {folderPath && (
             <div className="folder-path">{folderPath}</div>
           )}
         </div>
       </div>
+
+      {/* Drop Zone */}
+      {isDragOver && (
+        <div className="drop-zone-overlay">
+          <span className="drop-zone-icon">📁</span>
+          <span className="drop-zone-text">释放以选择文件夹</span>
+        </div>
+      )}
 
       {/* Feedback */}
       {feedback && (
@@ -218,7 +280,7 @@ function App() {
             </summary>
             <div className="scan-result" style={{ marginTop: 8 }}>
               {inferResult.date_entries.map((de, i) => (
-                <div className="scan-row" key={i} onClick={() => invoke('open_file', { path: de.path })} style={{ cursor: 'pointer' }} title="点击打开图片">
+                <div className="scan-row" key={i} onClick={() => invoke("open_file", { path: de.path })} style={{ cursor: "pointer" }} title="点击打开图片">
                   <span className="filename">{de.filename}</span>
                   {de.date ? (
                     <span className={`date${de.is_outlier ? ' outlier' : ''}`}>
