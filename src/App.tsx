@@ -124,6 +124,17 @@ function App() {
       _setEntries(scanResult);
       const inference: InferResult = await invoke('infer_date', { folderPath: selected, entries: scanResult });
       setInferResult(inference);
+      // GPS geocode
+      try {
+        const gps = await invoke<[number, number] | null>("extract_gps", { folderPath: selected });
+        if (gps) {
+          const url_ = "https://nominatim.openstreetmap.org/reverse?lat=" + gps[0] + "&lon=" + gps[1] + "&format=json&accept-language=zh";
+          const resp = await fetch(url_, { headers: { "User-Agent": "image-archive/0.1" } });
+          const data = await resp.json();
+          const city = data.address?.city || data.address?.town || data.address?.village || data.address?.county;
+          if (city) setLocation(city);
+        }
+      } catch (_e) {}
     } catch (err) {
       setFeedback({ type: 'error', message: '扫描失败: ' + err });
     } finally {
@@ -172,6 +183,17 @@ function App() {
         entries: scanResult,
       });
       setInferResult(inference);
+      // GPS geocode
+      try {
+        const gps_data = await invoke<[number, number] | null>("extract_gps", { folderPath: selected });
+        if (gps_data) {
+          const url = "https://nominatim.openstreetmap.org/reverse?lat=" + gps_data[0] + "&lon=" + gps_data[1] + "&format=json&accept-language=zh";
+          const resp = await fetch(url, { headers: { "User-Agent": "image-archive/0.1" } });
+          const data = await resp.json();
+          const city = data.address?.city || data.address?.town || data.address?.village || data.address?.county;
+          if (city) setLocation(city);
+        }
+      } catch (_e) {}
     } catch (err) {
       setFeedback({ type: 'error', message: `扫描失败: ${err}` });
     } finally {

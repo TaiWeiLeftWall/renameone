@@ -8,6 +8,7 @@ mod log_ops;
 use scanner::ImageEntry;
 use inference::InferResult;
 use log_ops::RenameEntry;
+use std::path::Path;
 
 #[tauri::command]
 fn scan_folder(folder_path: String) -> Result<Vec<ImageEntry>, String> {
@@ -38,6 +39,24 @@ fn open_file(path: String) -> Result<(), String> {
         .spawn()
         .map_err(|e| format!("打开文件失败: {}", e))?;
     Ok(())
+}
+
+#[tauri::command]
+fn extract_gps(folder_path: String) -> Result<Option<(f64, f64)>, String> {
+    let path_obj = Path::new(&folder_path);
+    if !path_obj.is_dir() {
+        if let Some(coords) = exif::extract_gps(&folder_path) {
+            return Ok(Some(coords));
+        }
+        return Ok(None);
+    }
+    let entries = scanner::scan_folder(&folder_path)?;
+    for entry in &entries {
+        if let Some(coords) = exif::extract_gps(&entry.path) {
+            return Ok(Some(coords));
+        }
+    }
+    Ok(None)
 }
 
 #[tauri::command]
@@ -74,6 +93,7 @@ pub fn run() {
             infer_date,
             rename_folder,
             open_file,
+            extract_gps,
             get_thumbnail,
             list_history,
             undo_rename,

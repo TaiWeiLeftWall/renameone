@@ -76,3 +76,46 @@ pub fn extract_date(path_str: &str) -> ExtractedDate {
 
     ExtractedDate { date: None, source: None }
 }
+/// 从图片文件中提取 GPS 坐标
+pub fn extract_gps(path_str: &str) -> Option<(f64, f64)> {
+    let path = Path::new(path_str);
+    let file = File::open(path).ok()?;
+    let reader = ExifReader::new().read_from_container(&mut std::io::BufReader::new(file)).ok()?;
+
+    let lat_field = reader.get_field(Tag::GPSLatitude, exif::In::PRIMARY)?;
+    let lon_field = reader.get_field(Tag::GPSLongitude, exif::In::PRIMARY)?;
+    let lat_ref = reader.get_field(Tag::GPSLatitudeRef, exif::In::PRIMARY)?;
+    let lon_ref = reader.get_field(Tag::GPSLongitudeRef, exif::In::PRIMARY)?;
+
+    let lat = parse_gps_value(lat_field)?;
+    let lon = parse_gps_value(lon_field)?;
+
+    let lat = if lat_ref.display_value().to_string().trim() == "S" { -lat } else { lat };
+    let lon = if lon_ref.display_value().to_string().trim() == "W" { -lon } else { lon };
+
+    Some((lat, lon))
+}
+
+fn parse_gps_value(field: &exif::Field) -> Option<f64> {
+    let display = field.display_value().to_string();
+    // Format: "40/1, 45/1, 30/1" or "40, 45, 30"
+    let parts: Vec<f64> = display
+        .split(|c: char| c == ',' || c == '/')
+        .filter_map(|s| {
+            let s = s.trim();
+            if s.is_empty() { None } else { s.parse::<f64>().ok() }
+        })
+        .collect();
+
+    if parts.len() == 6 {
+        // Rational format: num/den, num/den, num/den
+        Some(parts[0] / parts[1] + parts[2] / parts[3] / 60.0 + parts[4] / parts[5] / 3600.0)
+    } else if parts.len() == 3 {
+        // Decimal format: deg, min, sec
+        Some(parts[0] + parts[1] / 60.0 + parts[2] / 3600.0)
+    } else if parts.len() == 1 {
+        Some(parts[0])
+    } else {
+        None
+    }
+}
