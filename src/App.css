@@ -472,3 +472,16 @@ body {
   text-align: center;
   margin-top: var(--space-xs);
 }
+
+/* 缩略图 */
+.scan-row img { transition: opacity 0.2s; }
+
+/* 日期选择 */
+.date-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.date-chip { padding: 4px 12px; border-radius: 9999px; border: 1px solid var(--hairline); cursor: pointer; font-size: 13px; font-family: var(--font-mono); transition: all 0.15s; }
+.date-chip:hover { border-color: var(--primary); }
+.date-chip.active { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+
+/* 历史记录 */
+.history-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--hairline-soft); font-size: 13px; }
+.history-row:last-child { border-bottom: none; }

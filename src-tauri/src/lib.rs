@@ -2,9 +2,12 @@ mod scanner;
 mod exif;
 mod inference;
 mod renamer;
+mod thumbnail;
+mod log_ops;
 
 use scanner::ImageEntry;
 use inference::InferResult;
+use log_ops::RenameEntry;
 
 #[tauri::command]
 fn scan_folder(folder_path: String) -> Result<Vec<ImageEntry>, String> {
@@ -23,7 +26,9 @@ fn rename_folder(
     title: String,
     date: String,
 ) -> Result<String, String> {
-    renamer::rename_folder(&old_path, &location, &title, &date)
+    let new_path = renamer::rename_folder(&old_path, &location, &title, &date)?;
+    let _ = log_ops::append_log(&old_path, &new_path);
+    Ok(new_path)
 }
 
 #[tauri::command]
@@ -33,6 +38,21 @@ fn open_file(path: String) -> Result<(), String> {
         .spawn()
         .map_err(|e| format!("打开文件失败: {}", e))?;
     Ok(())
+}
+
+#[tauri::command]
+fn get_thumbnail(path: String) -> Result<String, String> {
+    thumbnail::generate_thumbnail(&path)
+}
+
+#[tauri::command]
+fn list_history(folder_path: String) -> Result<Vec<RenameEntry>, String> {
+    log_ops::list_history(&folder_path)
+}
+
+#[tauri::command]
+fn undo_rename(folder_path: String) -> Result<(String, String), String> {
+    log_ops::undo_last(&folder_path)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -54,6 +74,9 @@ pub fn run() {
             infer_date,
             rename_folder,
             open_file,
+            get_thumbnail,
+            list_history,
+            undo_rename,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

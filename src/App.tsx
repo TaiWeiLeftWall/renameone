@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -24,6 +24,14 @@ interface InferResult {
   has_conflict: boolean;
   conflict_message: string | null;
   date_entries: DateEntry[];
+}
+
+interface RenameEntry {
+  timestamp: string;
+  old_path: string;
+  new_path: string;
+  old_name: string;
+  new_name: string;
 }
 
 type Feedback = { type: 'success' | 'error'; message: string } | null;
@@ -81,6 +89,10 @@ function App() {
   const [renaming, setRenaming] = useState(false);
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [history, setHistory] = useState<RenameEntry[]>([]);
+  const thumbCache = useRef<Record<string, string>>({});
+  const [thumbTick, setThumbTick] = useState(0);
 
   const processFolder = useCallback(async (selected: string) => {
     if (!selected) return;
@@ -106,6 +118,18 @@ function App() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  const loadThumbnails = useCallback(async (entries: DateEntry[]) => {
+    for (const de of entries) {
+      if (!thumbCache.current[de.path] && de.path) {
+        try {
+          const b64 = await invoke<string>('get_thumbnail', { path: de.path });
+          thumbCache.current[de.path] = b64;
+        } catch {}
+      }
+    }
+    setThumbTick(t => t + 1);
   }, []);
 
   const handleSelectFolder = useCallback(async () => {
@@ -177,6 +201,12 @@ function App() {
 
   
   useEffect(() => {
+    if (feedback?.type === 'success' && folderPath) {
+      invoke<RenameEntry[]>('list_history', { folderPath }).then(setHistory).catch(() => {});
+    }
+  }, [feedback, folderPath]);
+
+  useEffect(() => {
     let unlisten: (() => void) | null = null;
     const setup = async () => {
       try {
@@ -199,6 +229,24 @@ function App() {
     setup();
     return () => { if (unlisten) unlisten(); };
   }, [processFolder]);
+
+  const handleUndo = useCallback(async () => {
+    if (!folderPath) return;
+    try {
+      const [oldName, newName] = await invoke<[string, string]>('undo_rename', { folderPath });
+      setFeedback({ type: 'success', message: '已撤销: ' + newName + ' → ' + oldName });
+      const h = await invoke<RenameEntry[]>('list_history', { folderPath });
+      setHistory(h);
+    } catch (err) {
+      setFeedback({ type: 'error', message: '撤销失败: ' + err });
+    }
+  }, [folderPath]);
+
+  const handleSelectDate = useCallback((date: string) => {
+    if (!inferResult) return;
+    setSelectedDate(date);
+    setInferResult({ ...inferResult, date });
+  }, [inferResult]);
 
   const canRename = inferResult?.date && location.trim() && title.trim() && !renaming;
 
@@ -259,6 +307,33 @@ function App() {
             </div>
           )}
 
+          {/* Date options when conflict */}
+          {inferResult.has_conflict && inferResult.date_entries.length > 0 && (
+            <div style={{ marginTop: '8px' }}>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>检测到多个日期，请选择：</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {Array.from(new Set(inferResult.date_entries.filter(d => d.date).map(d => d.date))).map(date => (
+                  <button
+                    key={date}
+                    onClick={() => handleSelectDate(date!)}
+                    style={{
+                      padding: '4px 12px',
+                      borderRadius: 'var(--radius-pill)',
+                      border: '1px solid var(--hairline)',
+                      background: (inferResult.date === date || selectedDate === date) ? 'var(--primary)' : 'var(--canvas)',
+                      color: (inferResult.date === date || selectedDate === date) ? 'var(--on-primary)' : 'var(--body)',
+                      cursor: 'pointer',
+                      fontSize: 13,
+                      fontFamily: 'var(--font-mono)',
+                    }}
+                  >
+                    {date!.replace(/_/g, '/')}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {!inferResult.date && (
             <div style={{ color: 'var(--warning)', fontSize: 13, padding: '8px 0' }}>
               未能从图片中提取到拍摄日期
@@ -274,14 +349,14 @@ function App() {
           )}
 
           {/* File List (collapsible) */}
-          <details style={{ marginTop: 'var(--space-sm)' }}>
+          <details style={{ marginTop: 'var(--space-sm)' }} onToggle={(e) => { if ((e.target as HTMLDetailsElement).open && inferResult) loadThumbnails(inferResult.date_entries); }}>
             <summary style={{ fontSize: 12, color: 'var(--muted)', cursor: 'pointer' }}>
               查看图片列表 ({inferResult.total})
             </summary>
             <div className="scan-result" style={{ marginTop: 8 }}>
               {inferResult.date_entries.map((de, i) => (
                 <div className="scan-row" key={i} onClick={() => invoke("open_file", { path: de.path })} style={{ cursor: "pointer" }} title="点击打开图片">
-                  <span className="filename">{de.filename}</span>
+                  <span className="filename">{(thumbCache.current[de.path] && thumbTick >= 0) ? <img src={thumbCache.current[de.path]} style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 4, marginRight: 6, verticalAlign: 'middle' }} /> : null}{de.filename}</span>
                   {de.date ? (
                     <span className={`date${de.is_outlier ? ' outlier' : ''}`}>
                       {formatDate(de.date)}
@@ -366,6 +441,25 @@ function App() {
       </button>
 
       {/* Footer */}
+      {history.length > 0 && (
+        <div className="card">
+          <div className="card-title">操作历史</div>
+          {history.slice().reverse().slice(0, 5).map((entry, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--hairline-soft)', fontSize: 13 }}>
+              <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {entry.old_name} → {entry.new_name}
+              </span>
+              <button
+                onClick={() => handleUndo()}
+                style={{ fontSize: 12, color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, marginLeft: 8 }}
+              >
+                撤销
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       <footer style={{
         textAlign: 'center',
         fontSize: 12,
