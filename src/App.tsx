@@ -154,7 +154,7 @@ function App() {
       {/* Header */}
       <header className="app-header">
         <h1>图片归档工具</h1>
-        <p>按拍摄日期和地点的统一重命名文件夹</p>
+        <p>按日期和城市重命名文件夹</p>
       </header>
 
       {/* Folder Picker */}
@@ -259,11 +259,11 @@ function App() {
         <div className="card">
           <div className="input-row">
             <div className="input-group">
-              <label htmlFor="location">地点</label>
+              <label htmlFor="location">城市</label>
               <input
                 id="location"
                 className="input-field"
-                placeholder="例如：北京颐和园"
+                placeholder="例如：北京"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 disabled={renaming}
