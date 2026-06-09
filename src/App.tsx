@@ -10,6 +10,7 @@ interface ImageEntry {
 }
 
 interface DateEntry {
+  path: string;
   filename: string;
   date: string | null;
   is_outlier: boolean;
@@ -59,7 +60,7 @@ const Spinner = () => <span className="spinner" />;
 
 // ---- Helpers ----
 function formatDate(dateStr: string): string {
-  return dateStr.replace(/-/g, '/');
+  return dateStr.replace(/_/g, '/');
 }
 
 function sanitizePreview(text: string): string {
@@ -96,7 +97,7 @@ function App() {
       });
 
       if (scanResult.length === 0) {
-        setFeedback({ type: 'error', message: '所选文件夹中没有找到图片文件' });
+        setFeedback({ type: 'error', message: '鎵€閫夋枃浠跺す涓病鏈夋壘鍒板浘鐗囨枃浠? });
         _setEntries([]);
         setLoading(false);
         return;
@@ -109,7 +110,7 @@ function App() {
       });
       setInferResult(inference);
     } catch (err) {
-      setFeedback({ type: 'error', message: `扫描失败: ${err}` });
+      setFeedback({ type: 'error', message: `鎵弿澶辫触: ${err}` });
     } finally {
       setLoading(false);
     }
@@ -130,9 +131,9 @@ function App() {
       });
 
       const shortName = newPath.split('\\').pop() || newPath;
-      setFeedback({ type: 'success', message: `归档完成！\n${shortName}` });
+      setFeedback({ type: 'success', message: `褰掓。瀹屾垚锛乗n${shortName}` });
     } catch (err) {
-      setFeedback({ type: 'error', message: `重命名失败: ${err}` });
+      setFeedback({ type: 'error', message: `閲嶅懡鍚嶅け璐? ${err}` });
     } finally {
       setRenaming(false);
     }
@@ -152,8 +153,8 @@ function App() {
     <div className="app-container">
       {/* Header */}
       <header className="app-header">
-        <h1>图片归档工具</h1>
-        <p>按拍摄日期和地点的统一重命名文件夹</p>
+        <h1>鍥剧墖褰掓。宸ュ叿</h1>
+        <p>鎸夋媿鎽勬棩鏈熷拰鍦扮偣鐨勭粺涓€閲嶅懡鍚嶆枃浠跺す</p>
       </header>
 
       {/* Folder Picker */}
@@ -161,7 +162,7 @@ function App() {
         <div className="folder-picker">
           <button className="btn-primary" onClick={handleSelectFolder} disabled={loading}>
             {loading ? <Spinner /> : <FolderIcon />}
-            {loading ? '扫描中...' : '选择文件夹'}
+            {loading ? '鎵弿涓?..' : '閫夋嫨鏂囦欢澶?}
           </button>
           {folderPath && (
             <div className="folder-path">{folderPath}</div>
@@ -182,24 +183,22 @@ function App() {
         <div className="card">
           <div className="card-title">
             <ImageIcon />
-            {' '}共 {inferResult.total} 张图片
-          </div>
+            {' '}鍏?{inferResult.total} 寮犲浘鐗?          </div>
 
           {/* Date Display */}
           {inferResult.date && (
             <div className="date-display">
-              <span className="date-label">推断日期</span>
+              <span className="date-label">鎺ㄦ柇鏃ユ湡</span>
               <span className="date-value">{formatDate(inferResult.date)}</span>
               <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-                ({inferResult.count}/{inferResult.total} 张)
+                ({inferResult.count}/{inferResult.total} 寮?
               </span>
             </div>
           )}
 
           {!inferResult.date && (
             <div style={{ color: 'var(--warning)', fontSize: 13, padding: '8px 0' }}>
-              未能从图片中提取到拍摄日期
-            </div>
+              鏈兘浠庡浘鐗囦腑鎻愬彇鍒版媿鎽勬棩鏈?            </div>
           )}
 
           {/* Conflict Warning */}
@@ -213,7 +212,7 @@ function App() {
           {/* File List (collapsible) */}
           <details style={{ marginTop: 'var(--space-sm)' }}>
             <summary style={{ fontSize: 12, color: 'var(--muted)', cursor: 'pointer' }}>
-              查看图片列表 ({inferResult.total})
+              鏌ョ湅鍥剧墖鍒楄〃 ({inferResult.total})
             </summary>
             <div className="scan-result" style={{ marginTop: 8 }}>
               {inferResult.date_entries.map((de, i) => (
@@ -224,7 +223,7 @@ function App() {
                       {formatDate(de.date)}
                     </span>
                   ) : (
-                    <span className="no-date">无日期</span>
+                    <span className="no-date">鏃犳棩鏈?/span>
                   )}
                 </div>
               ))}
@@ -238,7 +237,7 @@ function App() {
         <div className="card">
           <div className="empty-state">
             <ImageIcon />
-            <p>选择一个文件夹开始</p>
+            <p>閫夋嫨涓€涓枃浠跺す寮€濮?/p>
           </div>
         </div>
       )}
@@ -248,7 +247,7 @@ function App() {
         <div className="card">
           <div className="empty-state">
             <Spinner />
-            <p style={{ marginTop: 8 }}>正在扫描图片并提取日期...</p>
+            <p style={{ marginTop: 8 }}>姝ｅ湪鎵弿鍥剧墖骞舵彁鍙栨棩鏈?..</p>
           </div>
         </div>
       )}
@@ -258,22 +257,22 @@ function App() {
         <div className="card">
           <div className="input-row">
             <div className="input-group">
-              <label htmlFor="location">地点</label>
+              <label htmlFor="location">鍦扮偣</label>
               <input
                 id="location"
                 className="input-field"
-                placeholder="例如：北京颐和园"
+                placeholder="渚嬪锛氬寳浜鍜屽洯"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 disabled={renaming}
               />
             </div>
             <div className="input-group">
-              <label htmlFor="title">标题</label>
+              <label htmlFor="title">鏍囬</label>
               <input
                 id="title"
                 className="input-field"
-                placeholder="例如：踏春赏花"
+                placeholder="渚嬪锛氳笍鏄ヨ祻鑺?
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 disabled={renaming}
@@ -286,9 +285,9 @@ function App() {
       {/* Preview */}
       {previewName && (
         <div className="preview-box">
-          <div className="preview-label">文件夹将重命名为</div>
+          <div className="preview-label">鏂囦欢澶瑰皢閲嶅懡鍚嶄负</div>
           <div className="preview-name">{previewName}</div>
-          <div className="preview-hint">确认后执行归档，此操作不可撤销</div>
+          <div className="preview-hint">纭鍚庢墽琛屽綊妗ｏ紝姝ゆ搷浣滀笉鍙挙閿€</div>
         </div>
       )}
 
@@ -299,7 +298,7 @@ function App() {
         onClick={handleRename}
       >
         {renaming ? <Spinner /> : <FolderIcon />}
-        {renaming ? '归档中...' : '开始归档'}
+        {renaming ? '褰掓。涓?..' : '寮€濮嬪綊妗?}
       </button>
 
       {/* Footer */}
@@ -310,7 +309,7 @@ function App() {
         padding: 'var(--space-md) 0',
         marginTop: 'auto',
       }}>
-        图片归档工具 v0.1
+        鍥剧墖褰掓。宸ュ叿 v0.1
       </footer>
     </div>
   );

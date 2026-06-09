@@ -26,6 +26,15 @@ fn rename_folder(
     renamer::rename_folder(&old_path, &location, &title, &date)
 }
 
+#[tauri::command]
+fn open_file(path: String) -> Result<(), String> {
+    std::process::Command::new("cmd")
+        .args(["/c", "start", "", &path])
+        .spawn()
+        .map_err(|e| format!("打开文件失败: {}", e))?;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -44,6 +53,7 @@ pub fn run() {
             scan_folder,
             infer_date,
             rename_folder,
+            open_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

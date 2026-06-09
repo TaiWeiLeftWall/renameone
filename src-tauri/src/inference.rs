@@ -16,6 +16,7 @@ pub struct InferResult {
 
 #[derive(Debug, Serialize)]
 pub struct DateEntry {
+    pub path: String,
     pub filename: String,
     pub date: Option<String>,
     pub is_outlier: bool,
@@ -29,13 +30,14 @@ pub fn infer_date(_folder_path: &str, entries: &[ImageEntry]) -> InferResult {
 
     for entry in entries {
         let date = exif::extract_date(&entry.path);
-        let date_str = date.map(|d| d.format("%Y-%m-%d").to_string());
+        let date_str = date.map(|d| d.format("%Y_%m_%d").to_string());
 
         if let Some(ref ds) = date_str {
             *date_counts.entry(ds.clone()).or_insert(0) += 1;
         }
 
         date_entries.push(DateEntry {
+            path: entry.path.clone(),
             filename: entry.filename.clone(),
             date: date_str.clone(),
             is_outlier: false,
@@ -46,8 +48,8 @@ pub fn infer_date(_folder_path: &str, entries: &[ImageEntry]) -> InferResult {
     let (representative, _max_count) = date_counts.iter()
         .max_by(|a, b| {
             a.1.cmp(b.1).then_with(|| {
-                let da = NaiveDate::parse_from_str(a.0, "%Y-%m-%d").unwrap_or(NaiveDate::MAX);
-                let db = NaiveDate::parse_from_str(b.0, "%Y-%m-%d").unwrap_or(NaiveDate::MAX);
+                let da = NaiveDate::parse_from_str(a.0, "%Y_%m_%d").unwrap_or(NaiveDate::MAX);
+                let db = NaiveDate::parse_from_str(b.0, "%Y_%m_%d").unwrap_or(NaiveDate::MAX);
                 da.cmp(&db)
             })
         })
@@ -59,12 +61,12 @@ pub fn infer_date(_folder_path: &str, entries: &[ImageEntry]) -> InferResult {
     let mut conflict_msg = None;
 
     if let Some(ref rep_date) = representative {
-        if let Ok(rep_parsed) = NaiveDate::parse_from_str(rep_date, "%Y-%m-%d") {
+        if let Ok(rep_parsed) = NaiveDate::parse_from_str(rep_date, "%Y_%m_%d") {
             let mut outlier_count = 0;
             for de in &mut date_entries {
                 if let Some(ref d) = de.date {
                     if d != rep_date {
-                        if let Ok(parsed) = NaiveDate::parse_from_str(d, "%Y-%m-%d") {
+                        if let Ok(parsed) = NaiveDate::parse_from_str(d, "%Y_%m_%d") {
                             let days_diff = (parsed - rep_parsed).num_days().abs();
                             if days_diff > 30 {
                                 de.is_outlier = true;
