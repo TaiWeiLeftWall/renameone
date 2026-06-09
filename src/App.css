@@ -485,3 +485,8 @@ body {
 /* 历史记录 */
 .history-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--hairline-soft); font-size: 13px; }
 .history-row:last-child { border-bottom: none; }
+
+/* Dark mode */
+.dark .app-container{--canvas:#181715;--ink:#faf9f5;--body:#c8c5bc;--body-strong:#e8e4da;--muted:#a09d96;--muted-soft:#7a776f;--hairline:#2d2b27;--hairline-soft:#252320;--surface-card:#252320;--surface-soft:#1f1e1b}.dark .preview-box{background:#1f1e1b;border-color:#2d2b27}.dark .feedback.success{background:rgba(93,184,114,0.15)}.dark .feedback.error{background:rgba(198,69,69,0.12)}
+.date-source-badge{display:inline-block;font-size:10px;padding:1px 6px;border-radius:4px;background:var(--surface-card);color:var(--muted);margin-left:4px;vertical-align:middle;font-family:var(--font-mono)}
+.dark-toggle{background:none;border:1px solid var(--hairline);border-radius:var(--radius-pill);padding:4px 10px;cursor:pointer;font-size:14px;margin-top:4px}

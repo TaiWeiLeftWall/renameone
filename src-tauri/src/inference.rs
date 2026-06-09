@@ -19,6 +19,7 @@ pub struct DateEntry {
     pub path: String,
     pub filename: String,
     pub date: Option<String>,
+    pub date_source: Option<String>,
     pub is_outlier: bool,
 }
 
@@ -29,8 +30,9 @@ pub fn infer_date(_folder_path: &str, entries: &[ImageEntry]) -> InferResult {
     let mut date_counts: HashMap<String, i32> = HashMap::new();
 
     for entry in entries {
-        let date = exif::extract_date(&entry.path);
-        let date_str = date.map(|d| d.format("%Y_%m_%d").to_string());
+        let extracted = exif::extract_date(&entry.path);
+        let date_str = extracted.date.map(|d| d.format("%Y_%m_%d").to_string());
+        let date_source = extracted.source;
 
         if let Some(ref ds) = date_str {
             *date_counts.entry(ds.clone()).or_insert(0) += 1;
@@ -40,6 +42,7 @@ pub fn infer_date(_folder_path: &str, entries: &[ImageEntry]) -> InferResult {
             path: entry.path.clone(),
             filename: entry.filename.clone(),
             date: date_str.clone(),
+            date_source: date_source.clone(),
             is_outlier: false,
         });
     }

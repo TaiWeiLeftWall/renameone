@@ -14,6 +14,7 @@ interface DateEntry {
   path: string;
   filename: string;
   date: string | null;
+  date_source: string | null;
   is_outlier: boolean;
 }
 
@@ -24,6 +25,12 @@ interface InferResult {
   has_conflict: boolean;
   conflict_message: string | null;
   date_entries: DateEntry[];
+}
+
+interface QueueItem {
+  folderPath: string;
+  folderName: string;
+  status: string;
 }
 
 interface RenameEntry {
@@ -94,7 +101,11 @@ function App() {
   const thumbCache = useRef<Record<string, string>>({});
   const [thumbTick, setThumbTick] = useState(0);
 
-  const processFolder = useCallback(async (selected: string) => {
+  const [isDark, setIsDark] = useState(() => localStorage.getItem("darkMode") === "true");
+  const [queue, _setQueue] = useState<QueueItem[]>([]);
+  const [currentIndex, _setCurrentIndex] = useState(-1);
+
+    const processFolder = useCallback(async (selected: string) => {
     if (!selected) return;
     setFeedback(null);
     setFolderPath(selected);
@@ -189,7 +200,7 @@ function App() {
     } finally {
       setRenaming(false);
     }
-  }, [folderPath, inferResult, location, title]);
+  }, [folderPath, inferResult, location, title, queue, currentIndex]);
 
   const previewName = useMemo(() => {
     if (!inferResult?.date) return null;
@@ -251,11 +262,11 @@ function App() {
   const canRename = inferResult?.date && location.trim() && title.trim() && !renaming;
 
   return (
-    <div className="app-container">
+    <div className={"app-container"+(isDark?" dark":"")}>
       {/* Header */}
       <header className="app-header">
         <h1>图片归档工具</h1>
-        <p>按日期和城市重命名文件夹</p>
+        <p>按日期和城市重命名文件夹</p><button className="dark-toggle" onClick={() => { const d = !isDark; setIsDark(d); localStorage.setItem("darkMode", String(d)); }}>{isDark ? "☀️" : "🌙"}</button>
       </header>
 
       {/* Folder Picker */}
@@ -271,6 +282,35 @@ function App() {
           )}
         </div>
       </div>
+
+      {/* Queue Panel */}
+      {queue.length > 0 && (
+        <div className="card" style={{ padding: '8px 12px' }}>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>
+            第 {currentIndex + 1}/{queue.length} 个文件夹
+          </div>
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            {queue.map((item, i) => (
+              <span
+                key={i}
+                style={{
+                  padding: '2px 8px',
+                  borderRadius: 'var(--radius-pill)',
+                  fontSize: 11,
+                  background: i === currentIndex ? 'var(--primary)' : 'var(--surface-card)',
+                  color: i === currentIndex ? 'var(--on-primary)' : 'var(--muted)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  maxWidth: 120,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {item.folderName}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Drop Zone */}
       {isDragOver && (
@@ -359,7 +399,7 @@ function App() {
                   <span className="filename">{(thumbCache.current[de.path] && thumbTick >= 0) ? <img src={thumbCache.current[de.path]} style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 4, marginRight: 6, verticalAlign: 'middle' }} /> : null}{de.filename}</span>
                   {de.date ? (
                     <span className={`date${de.is_outlier ? ' outlier' : ''}`}>
-                      {formatDate(de.date)}
+                      {formatDate(de.date)}{de.date_source?<span className="date-source-badge">{de.date_source.replace(/^exif_/,"EXIF").replace("exif_dt","EXIF").replace("mtime","修改时间").replace("filename","文件名")}</span>:null}
                     </span>
                   ) : (
                     <span className="no-date">无日期</span>
