@@ -8,7 +8,7 @@ pub struct ImageEntry {
     pub filename: String,
 }
 
-const IMAGE_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "tiff", "tif", "webp", "heic", "heif"];
+const IMAGE_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "tiff", "tif", "webp", "heic", "heif", "mp4", "mov", "avi", "mkv", "3gp", "webm", "m4v"];
 
 pub fn scan_folder(folder_path: &str) -> Result<Vec<ImageEntry>, String> {
     let path = Path::new(folder_path);

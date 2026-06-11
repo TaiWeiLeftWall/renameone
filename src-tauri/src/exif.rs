@@ -74,6 +74,11 @@ pub fn extract_date(path_str: &str) -> ExtractedDate {
         }
     }
 
+    // 6: Video metadata (MP4/MOV)
+    if let Some(vdate) = crate::video::extract_video_date(path_str) {
+        return ExtractedDate { date: Some(vdate), source: Some("video_metadata".to_string()) };
+    }
+
     ExtractedDate { date: None, source: None }
 }
 /// 从图片文件中提取 GPS 坐标

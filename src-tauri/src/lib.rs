@@ -2,7 +2,7 @@ mod scanner;
 mod exif;
 mod inference;
 mod renamer;
-mod thumbnail;
+mod video;
 mod log_ops;
 
 use scanner::ImageEntry;
@@ -60,11 +60,6 @@ fn extract_gps(folder_path: String) -> Result<Option<(f64, f64)>, String> {
 }
 
 #[tauri::command]
-fn get_thumbnail(path: String) -> Result<String, String> {
-    thumbnail::generate_thumbnail(&path)
-}
-
-#[tauri::command]
 fn list_history(folder_path: String) -> Result<Vec<RenameEntry>, String> {
     log_ops::list_history(&folder_path)
 }
@@ -94,7 +89,6 @@ pub fn run() {
             rename_folder,
             open_file,
             extract_gps,
-            get_thumbnail,
             list_history,
             undo_rename,
         ])

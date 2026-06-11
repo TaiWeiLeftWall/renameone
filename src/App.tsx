@@ -1,5 +1,5 @@
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import './App.css';
@@ -98,8 +98,6 @@ function App() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [history, setHistory] = useState<RenameEntry[]>([]);
-  const thumbCache = useRef<Record<string, string>>({});
-  const [thumbTick, setThumbTick] = useState(0);
 
   const [isDark, setIsDark] = useState(() => localStorage.getItem("darkMode") === "true");
   const [queue, _setQueue] = useState<QueueItem[]>([]);
@@ -142,17 +140,7 @@ function App() {
     }
   }, []);
 
-  const loadThumbnails = useCallback(async (entries: DateEntry[]) => {
-    for (const de of entries) {
-      if (!thumbCache.current[de.path] && de.path) {
-        try {
-          const b64 = await invoke<string>('get_thumbnail', { path: de.path });
-          thumbCache.current[de.path] = b64;
-        } catch {}
-      }
-    }
-    setThumbTick(t => t + 1);
-  }, []);
+
 
   const handleSelectFolder = useCallback(async () => {
     try {
@@ -342,13 +330,7 @@ function App() {
         </div>
       )}
 
-      {/* Feedback */}
-      {feedback && (
-        <div className={`feedback ${feedback.type}`}>
-          {feedback.type === 'success' ? <CheckIcon /> : <AlertIcon />}
-          <span>{feedback.message}</span>
-        </div>
-      )}
+
 
       {/* Scan Results */}
       {inferResult && inferResult.total > 0 && (
@@ -411,14 +393,14 @@ function App() {
           )}
 
           {/* File List (collapsible) */}
-          <details style={{ marginTop: 'var(--space-sm)' }} onToggle={(e) => { if ((e.target as HTMLDetailsElement).open && inferResult) loadThumbnails(inferResult.date_entries); }}>
+          <details style={{ marginTop: 'var(--space-sm)' }}>
             <summary style={{ fontSize: 12, color: 'var(--muted)', cursor: 'pointer' }}>
               查看图片列表 ({inferResult.total})
             </summary>
             <div className="scan-result" style={{ marginTop: 8 }}>
               {inferResult.date_entries.map((de, i) => (
                 <div className="scan-row" key={i} onClick={() => invoke("open_file", { path: de.path })} style={{ cursor: "pointer" }} title="点击打开图片">
-                  <span className="filename">{(thumbCache.current[de.path] && thumbTick >= 0) ? <img src={thumbCache.current[de.path]} style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 4, marginRight: 6, verticalAlign: 'middle' }} /> : null}{de.filename}</span>
+                  <span className="filename"><img src={convertFileSrc(de.path)} style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4, marginRight: 6, verticalAlign: 'middle' }} />{de.filename}</span>
                   {de.date ? (
                     <span className={`date${de.is_outlier ? ' outlier' : ''}`}>
                       {formatDate(de.date)}{de.date_source?<span className="date-source-badge">{de.date_source.replace(/^exif_/,"EXIF").replace("exif_dt","EXIF").replace("mtime","修改时间").replace("filename","文件名")}</span>:null}
@@ -492,7 +474,15 @@ function App() {
         </div>
       )}
 
-      {/* Action Button */}
+      {/* Feedback */}
+      {feedback && (
+        <div className={`feedback ${feedback.type}`}>
+          {feedback.type === 'success' ? <CheckIcon /> : <AlertIcon />}
+          <span>{feedback.message}</span>
+        </div>
+      )}
+
+            {/* Action Button */}
       <button
         className="btn-primary btn-full"
         disabled={!canRename}
