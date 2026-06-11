@@ -582,7 +582,7 @@ function App() {
         padding: 'var(--space-md) 0',
         marginTop: 'auto',
       }}>
-        图片归档工具 v0.1
+        图片归档工具 v0.3
       </footer>
     </div>
   );
