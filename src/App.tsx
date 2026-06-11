@@ -33,6 +33,11 @@ interface QueueItem {
   status: string;
 }
 
+interface Settings {
+  theme: string;
+  logPath: string;
+}
+
 interface RenameEntry {
   timestamp: string;
   old_path: string;
@@ -99,7 +104,23 @@ function App() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [history, setHistory] = useState<RenameEntry[]>([]);
 
-  const [isDark, setIsDark] = useState(() => localStorage.getItem("darkMode") === "true");
+  const [isDark, setIsDark] = useState(false);
+  const [settings, setSettings] = useState<Settings>(() => {
+    try {
+      const s = localStorage.getItem("settings");
+      if (s) return JSON.parse(s);
+    } catch {}
+    return { theme: "system", logPath: "" };
+  });
+  const [showSettings, setShowSettings] = useState(false);
+
+  const updateSettings = useCallback((partial: Partial<Settings>) => {
+    setSettings(prev => {
+      const next = { ...prev, ...partial };
+      localStorage.setItem("settings", JSON.stringify(next));
+      return next;
+    });
+  }, []);
   const [queue, _setQueue] = useState<QueueItem[]>([]);
   const [currentIndex, _setCurrentIndex] = useState(-1);
 
@@ -210,7 +231,7 @@ function App() {
     } finally {
       setRenaming(false);
     }
-  }, [folderPath, inferResult, location, title, queue, currentIndex]);
+  }, [folderPath, inferResult, location, title, queue, currentIndex, settings]);
 
   const previewName = useMemo(() => {
     if (!inferResult?.date) return null;
@@ -222,10 +243,22 @@ function App() {
 
   
   useEffect(() => {
+    if (settings.theme === "light") setIsDark(false);
+    else if (settings.theme === "dark") setIsDark(true);
+    else {
+      const mq = window.matchMedia("(prefers-color-scheme: dark)");
+      setIsDark(mq.matches);
+      const handler = (e: MediaQueryListEvent) => setIsDark(e.matches);
+      mq.addEventListener("change", handler);
+      return () => mq.removeEventListener("change", handler);
+    }
+  }, [settings.theme]);
+
+  useEffect(() => {
     if (feedback?.type === 'success' && folderPath) {
       invoke<RenameEntry[]>('list_history', { folderPath }).then(setHistory).catch(() => {});
     }
-  }, [feedback, folderPath]);
+  }, [feedback, settings.logPath]);
 
   useEffect(() => {
     let unlisten: (() => void) | null = null;
@@ -252,16 +285,15 @@ function App() {
   }, [processFolder]);
 
   const handleUndo = useCallback(async () => {
-    if (!folderPath) return;
     try {
-      const [oldName, newName] = await invoke<[string, string]>('undo_rename', { folderPath });
+      const [oldName, newName] = await invoke<[string, string]>('undo_rename', { customLogPath: settings.logPath || null });
       setFeedback({ type: 'success', message: '已撤销: ' + newName + ' → ' + oldName });
-      const h = await invoke<RenameEntry[]>('list_history', { folderPath });
+      const h = await invoke<RenameEntry[]>('list_history', { customLogPath: settings.logPath || null });
       setHistory(h);
     } catch (err) {
       setFeedback({ type: 'error', message: '撤销失败: ' + err });
     }
-  }, [folderPath]);
+  }, [settings.logPath]);
 
   const handleSelectDate = useCallback((date: string) => {
     if (!inferResult) return;
@@ -509,6 +541,37 @@ function App() {
               </button>
             </div>
           ))}
+        </div>
+      )}
+
+      {showSettings && (
+        <div className="settings-overlay" onClick={() => setShowSettings(false)}>
+          <div className="settings-modal" onClick={e => e.stopPropagation()}>
+            <h2 style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 400, color: "var(--ink)", marginBottom: 8 }}>设置</h2>
+
+            <div className="settings-section">
+              <label>主题模式</label>
+              <div className="theme-options">
+                <button onClick={() => updateSettings({ theme: "light" })} className={settings.theme === "light" ? "active" : ""}>☀️ 日间</button>
+                <button onClick={() => updateSettings({ theme: "dark" })} className={settings.theme === "dark" ? "active" : ""}>🌙 夜间</button>
+                <button onClick={() => updateSettings({ theme: "system" })} className={settings.theme === "system" ? "active" : ""}>💻 系统</button>
+              </div>
+            </div>
+
+            <div className="settings-section">
+              <label>归档日志保存位置</label>
+              <div className="log-path-row">
+                <span className="log-path-text">{settings.logPath || "默认位置"}</span>
+                <button className="btn-secondary" onClick={async () => { const sel = await open({ directory: true, multiple: false }); if (sel) updateSettings({ logPath: sel }); }}>选择</button>
+              </div>
+            </div>
+
+            <div className="settings-section">
+              <button className="btn-secondary" onClick={() => { caches.keys().then(names => names.forEach(n => caches.delete(n))).catch(() => {}); setFeedback({ type: "success", message: "缓存已清除" }); setShowSettings(false); }}>清除缓存</button>
+            </div>
+
+            <button className="btn-primary" style={{ width: "100%" }} onClick={() => setShowSettings(false)}>关闭</button>
+          </div>
         </div>
       )}
 

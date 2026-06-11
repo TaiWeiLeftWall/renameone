@@ -22,13 +22,15 @@ fn infer_date(folder_path: String, entries: Vec<ImageEntry>) -> Result<InferResu
 
 #[tauri::command]
 fn rename_folder(
+    app_handle: tauri::AppHandle,
     old_path: String,
     location: String,
     title: String,
     date: String,
+    custom_log_path: Option<String>,
 ) -> Result<String, String> {
     let new_path = renamer::rename_folder(&old_path, &location, &title, &date)?;
-    let _ = log_ops::append_log(&old_path, &new_path);
+    let _ = log_ops::append_log(&app_handle, &old_path, &new_path, custom_log_path.as_deref());
     Ok(new_path)
 }
 
@@ -60,13 +62,19 @@ fn extract_gps(folder_path: String) -> Result<Option<(f64, f64)>, String> {
 }
 
 #[tauri::command]
-fn list_history(folder_path: String) -> Result<Vec<RenameEntry>, String> {
-    log_ops::list_history(&folder_path)
+fn list_history(
+    app_handle: tauri::AppHandle,
+    custom_log_path: Option<String>,
+) -> Result<Vec<RenameEntry>, String> {
+    log_ops::list_history(&app_handle, custom_log_path.as_deref())
 }
 
 #[tauri::command]
-fn undo_rename(folder_path: String) -> Result<(String, String), String> {
-    log_ops::undo_last(&folder_path)
+fn undo_rename(
+    app_handle: tauri::AppHandle,
+    custom_log_path: Option<String>,
+) -> Result<(String, String), String> {
+    log_ops::undo_last(&app_handle, custom_log_path.as_deref())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
