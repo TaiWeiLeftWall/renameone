@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "0.1.0"
+version = "0.3.0"
 description = "图片归档工具 - 自动按日期和地点重命名文件夹"
 authors = ["you"]
 license = ""
